@@ -13,9 +13,16 @@ const fmt = n =>
   });
 
 function getValue(r) {
-  const key = Object.keys(r).find(k =>
-    k.toLowerCase().includes("electricity generation from renewables")
-  );
+  const key = Object.keys(r).find(k => {
+    const name = k.toLowerCase().trim();
+
+    return (
+      name === "electricity from renewables - twh" ||
+      name.includes("electricity generation from renewables") ||
+      name.includes("electricity from renewables") ||
+      name.includes("renewable_generation__twh")
+    );
+  });
 
   return key ? Number(r[key]) : NaN;
 }
