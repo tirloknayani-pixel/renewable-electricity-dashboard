@@ -1,18 +1,31 @@
 /* =========================================================
-   Global Renewable Electricity Dashboard — app.js
-   Data: Our World in Data (public, non-personal)
-   Works as a static GitHub Pages site. No server needed.
+   Global Renewable Electricity Dashboard — app.js (version 3)
+   Data: Our World in Data, "Electricity generation from renewables" (TWh)
+   Public, non-personal data. Static site — no server needed.
+
+   The data file is stored INSIDE this repository, next to this file:
+     electricity-renewables.csv
+   Loading a file from the same website cannot be blocked by CORS
+   and does not depend on OWID being online.
    ========================================================= */
 
-/* Main data source (OWID "Electricity generation from renewables", TWh).
-   Columns: Entity, Code, Year, Renewables */
-const DATA_URL =
-  "https://ourworldindata.org/grapher/electricity-renewables.csv?v=1&csvType=full&useColumnShortNames=false";
+const APP_VERSION = "v3";
 
-/* Backup data source (OWID energy dataset on GitHub), used only if the
-   main source fails. Columns used: country, iso_code, year, renewables_electricity */
-const BACKUP_URL =
-  "https://raw.githubusercontent.com/owid/energy-data/master/owid-energy-data.csv";
+/* Tried in this order. The first one that works is used. */
+const DATA_SOURCES = [
+  {
+    label: "Local file in this repository",
+    url: "electricity-renewables.csv?v=" + APP_VERSION
+  },
+  {
+    label: "OWID live CSV",
+    url: "https://ourworldindata.org/grapher/electricity-renewables.csv?v=1&csvType=full&useColumnShortNames=false"
+  },
+  {
+    label: "OWID energy data on GitHub",
+    url: "https://raw.githubusercontent.com/owid/energy-data/master/owid-energy-data.csv"
+  }
+];
 
 let rows = [];     // cleaned rows: { Entity, Code, Year, value }
 let entities = [];
@@ -21,9 +34,7 @@ let years = [];
 const $ = id => document.getElementById(id);
 
 const fmt = n =>
-  Number(n).toLocaleString(undefined, {
-    maximumFractionDigits: 2
-  });
+  Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 function getValue(r) {
   return r.value;
@@ -99,21 +110,19 @@ function normalise(parsed) {
   if (!parsed.length) return [];
 
   const headers = Object.keys(parsed[0]);
-  const find = names =>
-    headers.find(h => names.includes(h.toLowerCase()));
+  const find = names => headers.find(h => names.includes(h.toLowerCase()));
 
   const entityCol = find(["entity", "country"]);
   const codeCol = find(["code", "iso_code"]);
   const yearCol = find(["year"]);
 
-  /* Value column: "Renewables" (main source) or "renewables_electricity"
-     (backup). Otherwise, use the first column that isn't Entity/Code/Year. */
   let valueCol = find([
     "renewables",
     "renewables_electricity",
     "renewable_generation__twh"
   ]);
   if (!valueCol) {
+    /* Fall back to the first column that isn't Entity / Code / Year */
     valueCol = headers.find(
       h => h !== entityCol && h !== codeCol && h !== yearCol
     );
@@ -140,27 +149,48 @@ function normalise(parsed) {
 }
 
 
+/* Try each data source in turn; record exactly why each one failed */
 async function loadData() {
-  const sources = [DATA_URL, BACKUP_URL];
-  let lastError = null;
+  const problems = [];
 
-  for (const url of sources) {
+  for (const source of DATA_SOURCES) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(source.url, { cache: "no-store" });
+
       if (!response.ok) {
-        throw new Error("OWID returned error " + response.status);
+        throw new Error("HTTP " + response.status + " (file missing or server error)");
       }
-      const csv = await response.text();
-      const clean = normalise(parseCSV(csv));
-      if (clean.length) return clean;
-      throw new Error("No usable data was found in the OWID dataset.");
+
+      const text = await response.text();
+
+      if (/^\s*</.test(text)) {
+        throw new Error("received a web page instead of a CSV file");
+      }
+
+      const clean = normalise(parseCSV(text));
+
+      if (!clean.length) {
+        const firstLine = text.split("\n")[0].slice(0, 120);
+        throw new Error("CSV had no usable rows. First line was: " + firstLine);
+      }
+
+      console.log("Loaded data from:", source.label, "-", clean.length, "rows");
+      return { rows: clean, source: source.label };
+
     } catch (err) {
-      lastError = err;
-      console.warn("Data source failed:", url, err);
+      /* A CORS block shows up here as "Failed to fetch" / "Load failed" */
+      const reason =
+        err instanceof TypeError
+          ? "blocked by the browser (network or CORS): " + err.message
+          : err.message;
+      problems.push(source.label + ": " + reason);
+      console.warn(source.label, "failed:", reason);
     }
   }
 
-  throw lastError || new Error("Could not load OWID data.");
+  const error = new Error("All data sources failed.");
+  error.details = problems;
+  throw error;
 }
 
 
@@ -255,7 +285,7 @@ function drawCountries() {
 function drawMap() {
   const year = Number($("compareYear").value);
 
-  /* Only real countries (3-letter ISO codes); regions like
+  /* Only real countries (3-letter ISO codes); aggregates such as
      "OWID_WRL" or "OWID_EUR" are left off the map. */
   const data = rows.filter(
     r => r.Year === year && /^[A-Z]{3}$/.test(getISO(r))
@@ -289,15 +319,26 @@ function drawMap() {
 }
 
 
-/* Load public OWID data and build the dashboard */
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"]/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
+  );
+}
+
+
+/* Build the dashboard */
 async function init() {
   try {
-    rows = await loadData();
+    if (typeof Plotly === "undefined") {
+      throw new Error("The Plotly chart library did not load (cdn.plot.ly).");
+    }
+
+    const loaded = await loadData();
+    rows = loaded.rows;
 
     entities = [...new Set(rows.map(r => r.Entity))].sort();
     years = [...new Set(rows.map(r => r.Year))].sort((a, b) => a - b);
 
-    /* Latest global value */
     const world = rows
       .filter(r => r.Entity === "World")
       .sort((a, b) => a.Year - b.Year);
@@ -313,19 +354,14 @@ async function init() {
     $("latestYear").textContent = latest.Year;
     $("entityCount").textContent = entities.length;
 
-    /* Start-year selector (defaults to 2000) */
     fillSelect($("startYear"), years, [Math.max(years[0], 2000)]);
-
-    /* Comparison-year selector (defaults to latest world year) */
     fillSelect($("compareYear"), years, [latest.Year]);
 
-    /* Default countries */
     const defaults = ["China", "United States", "Brazil", "India"].filter(
       country => entities.includes(country)
     );
     fillSelect($("countries"), entities, defaults);
 
-    /* Event listeners */
     $("startYear").addEventListener("change", drawGlobal);
     $("compareYear").addEventListener("change", () => {
       drawCountries();
@@ -333,26 +369,28 @@ async function init() {
     });
     $("countries").addEventListener("change", drawCountries);
 
-    /* Draw charts */
     drawGlobal();
     drawCountries();
     drawMap();
 
   } catch (error) {
     console.error(error);
+
+    const details = (error.details || [])
+      .map(d => "<li>" + escapeHTML(d) + "</li>")
+      .join("");
+
     document.querySelectorAll(".chart").forEach(el => {
       el.innerHTML = `
         <div style="padding:30px; color:#9b2c2c;">
-          Unable to load the public OWID dataset.
-          Check your internet connection and reload the page.
+          The dashboard data could not be loaded (dashboard ${APP_VERSION}).
           <br><br>
-          ${error.message}
+          ${escapeHTML(error.message)}
+          ${details ? "<ul style='margin-top:10px'>" + details + "</ul>" : ""}
         </div>
       `;
     });
   }
 }
 
-
-/* Start dashboard */
 init();
