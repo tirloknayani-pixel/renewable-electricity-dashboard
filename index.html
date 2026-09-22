@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Global Renewable Electricity Dashboard</title>
+  <meta name="description" content="Interactive dashboard exploring renewable electricity generation globally and across countries using public Our World in Data data.">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.3/papaparse.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">PUBLIC DATA • RENEWABLE ENERGY</p>
+        <h1>Global Renewable Electricity</h1>
+        <p class="subtitle">How has renewable electricity generation changed over time, and how does it differ across countries?</p>
+      </div>
+      <div class="source-badge">Source: Our World in Data</div>
+    </header>
+
+    <section class="cards" aria-label="Key indicators">
+      <article class="card"><span>Latest global generation</span><strong id="globalLatest">Loading…</strong><small id="globalLatestYear"></small></article>
+      <article class="card"><span>Latest year in dataset</span><strong id="latestYear">Loading…</strong><small>Annual data</small></article>
+      <article class="card"><span>Countries / regions</span><strong id="entityCount">Loading…</strong><small>Entities in source</small></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>1. Global trend</h2>
+          <p>Renewable electricity generation worldwide, measured in terawatt-hours (TWh).</p>
+        </div>
+        <label>Start year
+          <select id="startYear"></select>
+        </label>
+      </div>
+      <div id="globalChart" class="chart"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>2. Compare countries</h2>
+          <p>Select up to five countries or regions and explore their generation over time.</p>
+        </div>
+        <label>Year
+          <select id="compareYear"></select>
+        </label>
+      </div>
+      <div class="controls">
+        <label class="wide">Countries / regions
+          <select id="countries" multiple size="6"></select>
+          <small>Tip: hold Ctrl/Cmd to select multiple. Default: China, United States, Brazil, India.</small>
+        </label>
+      </div>
+      <div id="countryChart" class="chart"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Country map</h2>
+          <p>Renewable electricity generation in the selected year. Geographic entities without usable ISO codes may not appear.</p>
+        </div>
+      </div>
+      <div id="mapChart" class="chart map"></div>
+    </section>
+
+    <footer>
+      <p><strong>Data:</strong> Our World in Data, “Electricity generation from renewables.” Renewables include solar, wind, hydropower, bioenergy, geothermal, wave and tidal.</p>
+      <p>Dataset last updated June 30, 2026; coverage 1900–2025. Source data include Ember, Energy Institute and other sources, with processing by Our World in Data.</p>
+      <p><a href="https://ourworldindata.org/grapher/electricity-mix?frequency=annual&metric=generation&source=renewables&tab=line" target="_blank" rel="noopener">Open the OWID dataset</a> · <a href="https://ourworldindata.org/grapher/electricity-mix.csv?v=1&csvType=full&useColumnShortNames=false&source=renewables&metric=generation&frequency=annual" target="_blank" rel="noopener">CSV data endpoint</a></p>
+      <p class="note">This dashboard uses only public, non-personal data. No personal files or account data are used.</p>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
