@@ -136,16 +136,7 @@ function normalise(parsed) {
       Code: codeCol ? String(r[codeCol] || "").trim() : "",
       Year: Number(r[yearCol]),
       value: r[valueCol] === "" ? NaN : Number(r[valueCol])
-    }))
-    .filter(
-      r =>
-        r.Entity &&
-        Number.isFinite(r.Year) &&
-        Number.isFinite(r.value) &&
-        /* Skip duplicate source-specific groupings such as
-           "Africa (EI)" or "Europe (Ember)" — they have no code. */
-        r.Code !== ""
-    );
+    }).filter(r => r.Entity && Number.isFinite(r.Year) && Number.isFinite(r.value));
 }
 
 
