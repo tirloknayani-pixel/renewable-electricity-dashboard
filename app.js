@@ -1,6 +1,4 @@
-const DATA_URL =
-  "https://ourworldindata.org/grapher/electricity-mix.csv?v=1&csvType=full&useColumnShortNames=false&source=renewables&metric=generation&frequency=annual";
-
+const DATA_URL = "https://ourworldindata.org/grapher/electricity-mix.csv?v=1&csvType=full&useColumnShortNames=true&source=renewables&metric=generation&frequency=annual";
 let rows = [];
 let entities = [];
 let years = [];
@@ -13,18 +11,7 @@ const fmt = n =>
   });
 
 function getValue(r) {
-  const key = Object.keys(r).find(k => {
-    const name = k.toLowerCase().trim();
-
-    return (
-      name === "electricity from renewables - twh" ||
-      name.includes("electricity generation from renewables") ||
-      name.includes("electricity from renewables") ||
-      name.includes("renewable_generation__twh")
-    );
-  });
-
-  return key ? Number(r[key]) : NaN;
+  return Number(r["renewable_generation__twh"]);
 }
 
 function getISO(r) {
